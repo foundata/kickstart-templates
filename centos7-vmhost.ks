@@ -33,6 +33,7 @@ data_hostname=''
 data_domainname=''
 data_drive=''
 data_dmcrypt_pwdplain=''
+data_packages_vmhostgui=''
 
 
 # This kickstart file is just a helper, configuring *most* but not *all* things.
@@ -45,7 +46,7 @@ data_dmcrypt_pwdplain=''
 # - root password
 # - user to create: username and password
 # - timezone
-#  
+#
 # Not setting the "timezone" kickstart command is also a little trick. It
 # prevents Anaconda from starting the installation automatically. This enables
 # the user to use the UI to adapt misc settings before the installation happens.
@@ -109,9 +110,9 @@ then
         fi
         printf '> '
     done
+    unset valsuggestion
+    printf '\n\n'
 fi
-unset valsuggestion
-printf '\n\n'
 
 
 # ask for the domainname
@@ -214,9 +215,9 @@ then
         fi
         printf '> '
     done
+    unset valsuggestion fqdntest
+    printf '\n\n'
 fi
-unset fqdntest
-printf '\n\n'
 
 
 # ask for the installation target disk
@@ -272,11 +273,11 @@ then
             printf 'Using "%s".\n' "${data_drive}"
         fi
     done
+    printf '\n\n'
 fi
-printf '\n\n'
 
 
-# ask for the disk encryption password password to use
+# ask if system should be encrypted and for the disk encryption password to use
 #
 # Notes on terminology:
 # - DM-Crypt: The kernel's disk encryption subsystem (module "dm-crypt")
@@ -287,71 +288,108 @@ printf '\n\n'
 # - cryptsetup: Binary tool used to manage encrypt disks
 if [ -z "${data_dmcrypt_pwdplain}" ]
 then
-    printf 'Step 4: disk encryption password (dm-crypt/LUKS) \n\n'
-    printf '%s\n' 'Password rules: Use a passphrase which is at least 20 chars long and does not' \
-                  'contain whitespace. It has to match the following pattern:' \
-                  '^[a-zA-Z!"\#$%&'\''()*+,\-./:;<=>?@\[\\\]^_`{|}~]{20,}$'
-    printf '\n'
-
-    pwdconfirm=''
-    pwdscore=''
-    printf '%s\n' 'Password input will not be shown on the screen (no echo).'
-    printf '%s' 'Please enter password:'
-    while IFS= read -r -s data_dmcrypt_pwdplain # ATTENTION: read -s is not POSIX compliant but a Bash extension. Using it here only because stty and tput is not available.
-    do
+    printf 'Step 4: disk encryption (dm-crypt/LUKS) \n\n'
+    printf 'Do you want to use full disk encryption?  [y|n]: '
+    if { IFS= read -r i; printf '%s' "${i}"; } | grep -E -q -e "$( (command -v 'locale' && locale yesexpr) || printf '^[jJyY].*')"
+    then
+        printf '\n'
+        printf '%s\n' 'Password rules: Use a passphrase which is at least 20 chars long and does not' \
+                      'contain whitespace. It has to match the following pattern:' \
+                      '^[a-zA-Z!"\#$%&'\''()*+,\-./:;<=>?@\[\\\]^_`{|}~]{20,}$'
         printf '\n'
 
-        # get password quality score
-        pwdscore="$(printf '%s' \"${data_dmcrypt_pwdplain}\" | pwscore 2> /dev/null)"
-        if [ -z "${pwdscore}" ]
-        then
-            pwdscore='0'
-        fi
-
-        # check quality
-        if [ -z "${data_dmcrypt_pwdplain}" ]
-        then
-            printf '%s\n' 'Error: Empty passwords are not allowed.'
-        elif [ -z "${pwdscore}" ] ||
-             [ "${pwdscore}" -lt 50 ] # ATTENTION: has to stricter or in sync than kickstart cmd "pwpolicy luks"
-        then
-            printf '%s\n' "Error: Password is too weak (cf. \"Password rules\" above). pwscore result: ${pwdscore}"
-        elif ! printf '%s' "${data_dmcrypt_pwdplain}" | grep -E -q -e "${regex_dmcryptpwd}"
-        then
-            printf '%s\n' 'Error: Password does not match the allowed pattern (cf. "Password rules" above).' \
-                          '       Any invalid chars? Too short?'
-
-        # password confirmation
-        elif [ -n "${data_dmcrypt_pwdplain}" ]
-        then
-            printf '%s' 'Please confirm password:'
-            IFS= read -r -s pwdconfirm # ATTENTION: read -s is not POSIX compliant but a Bash extension. Using it here only because stty and tput is not available.
+        pwdconfirm=''
+        pwdscore=''
+        printf '%s\n' 'Password input will not be shown on the screen (no echo).'
+        printf '%s' 'Please enter password:'
+        while IFS= read -r -s data_dmcrypt_pwdplain # ATTENTION: read -s is not POSIX compliant but a Bash extension. Using it here only because stty and tput is not available.
+        do
             printf '\n'
-            if  [ "${data_dmcrypt_pwdplain}" != "${pwdconfirm}" ]
-            then
-                printf '%s\n' 'Error: Passwords do not match.'
-                pwdconfirm=''
-            else
-                 break 1 # input was valid
-            fi
-        fi
 
-        # re-ask
-        printf '\n%s' 'Please enter password:'
-    done
-    unset pwdconfirm
+            # get password quality score
+            pwdscore="$(printf '%s' \"${data_dmcrypt_pwdplain}\" | pwscore 2> /dev/null)"
+            if [ -z "${pwdscore}" ]
+            then
+                pwdscore='0'
+            fi
+
+            # check quality
+            if [ -z "${data_dmcrypt_pwdplain}" ]
+            then
+                printf '%s\n' 'Error: Empty passwords are not allowed.'
+            elif [ -z "${pwdscore}" ] ||
+                 [ "${pwdscore}" -lt 50 ] # ATTENTION: has to stricter or in sync than kickstart cmd "pwpolicy luks"
+            then
+                printf '%s\n' "Error: Password is too weak (cf. \"Password rules\" above). pwscore result: ${pwdscore}"
+            elif ! printf '%s' "${data_dmcrypt_pwdplain}" | grep -E -q -e "${regex_dmcryptpwd}"
+            then
+                printf '%s\n' 'Error: Password does not match the allowed pattern (cf. "Password rules" above).' \
+                              '       Any invalid chars? Too short?'
+
+            # password confirmation
+            elif [ -n "${data_dmcrypt_pwdplain}" ]
+            then
+                printf '%s' 'Please confirm password:'
+                IFS= read -r -s pwdconfirm # ATTENTION: read -s is not POSIX compliant but a Bash extension. Using it here only because stty and tput is not available.
+                printf '\n'
+                if  [ "${data_dmcrypt_pwdplain}" != "${pwdconfirm}" ]
+                then
+                    printf '%s\n' 'Error: Passwords do not match.'
+                    pwdconfirm=''
+                else
+                     break 1 # input was valid
+                fi
+            fi
+
+            # re-ask
+            printf '\n%s' 'Please enter password:'
+        done
+        unset pwdconfirm
+    else
+        printf 'Ok, system will be unencrypted.\n'
+    fi
+    printf '\n\n'
 fi
-printf '\n\n'
+
+
+# ask if there should be a GUI or not
+if [ -z "${data_packages_vmhostgui}" ]
+then
+    printf 'Step 5: Server with GUI\n\n'
+    printf 'Do you want to install a desktop environment? [y|n]: '
+    if { IFS= read -r i; printf '%s' "${i}"; } | grep -E -q -e "$( (command -v 'locale' && locale yesexpr) || printf '^[jJyY].*')"
+    then
+        data_packages_vmhostgui='true'
+        printf 'Ok, Going to install GNOME.\n'
+    else
+        data_packages_vmhostgui='false'
+        printf 'OK, there will be no GUI.\n'
+    fi
+    printf '\n\n'
+fi
 
 
 # Write out KS commands for later include. Have a look above the corresponding
 # %include lines for comments on the used kickstart commands itself.
+
+# network.ks
 printf '%s\n' "network --bootproto=dhcp --activate --hostname=${data_hostname}.${data_domainname}" > /tmp/network.ks
+# ignoredisk.ks
 printf '%s\n' "ignoredisk --only-use=${data_drive}" > /tmp/ignoredisk.ks
+# bootloader.ks
 printf '%s\n' "bootloader --append=\" crashkernel=auto \" --location=\"mbr\" --boot-drive=\"${data_drive}\"" > /tmp/bootloader.ks
+# clearpart.ks
 printf '%s\n' "clearpart --all --drives=${data_drive}" > /tmp/clearpart.ks
+# part-boot.ks
 printf '%s\n' "part /boot --fstype=\"xfs\" --ondisk=${data_drive} --size=768" > /tmp/part-boot.ks
-printf '%s\n' "part pv.01 --fstype=\"lvmpv\" --ondisk=${data_drive} --grow --encrypted --passphrase=${data_dmcrypt_pwdplain}" > /tmp/part-pv.ks # writing the password into a file is no problem here. /tmp is a volatile FS and only existing until after the intallation.
+# part-pv.ks
+if [ -z "${data_dmcrypt_pwdplain}" ]
+then
+    printf '%s\n' "part pv.01 --fstype=\"lvmpv\" --ondisk=${data_drive} --grow" > /tmp/part-pv.ks
+else
+    printf '%s\n' "part pv.01 --fstype=\"lvmpv\" --ondisk=${data_drive} --grow --encrypted --passphrase=${data_dmcrypt_pwdplain}" > /tmp/part-pv.ks # writing the password into a file is OK here. /tmp is a volatile FS and only existing until after the intallation.
+fi
+# logvol.ks
 if [ "$(printf '%d' $(cat '/proc/partitions' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | grep -E -e "${data_drive}\$" | tr -s '[:space:]' ' ' | cut -d ' ' -f 3))" -gt 86769664 ] # all linux blocks are currently 1024 bytes (cf. manpage vmstat(8))
 then
     # OS on different filesystem, more flexible, reduced risk of filled up root FS
@@ -374,6 +412,60 @@ else
 	DELIM
     )" > /tmp/logvol.ks
 fi
+# packages.ks
+printf '%s\n\n' '%packages' > /tmp/packages.ks # line not included in HEREDOC, otherwise %package makes Anaconda believe that the %pre section is not closed correctly
+printf '%s\n' "$(cat <<-'DELIM'
+### base
+@^minimal
+@core
+@base
+@hardware-monitoring
+chrony
+kexec-tools
+rng-tools
+
+### VM host (base)
+@virtualization-hypervisor
+@virtualization-tools
+virt-install
+virt-top
+libguestfs-tools
+DELIM
+)" >> /tmp/packages.ks
+if [ -n "${data_packages_vmhostgui}" ] &&
+   [ "${data_packages_vmhostgui}" = "true" ]
+then
+    printf '%s\n' "$(cat <<-'DELIM'
+	### VM host (GUI)
+	@x11
+	@gnome-desktop
+	@fonts
+	@input-methods
+	@internet-browser
+	virt-manager
+	virt-viewer
+	-cheese
+	-empathy
+	-totem
+	-totem-nautilus
+	-gnome-boxes
+	-gnome-contacts
+	-gnome-documents
+	-gnome-video-effects
+	# GNOME comes with unoconv which has LibreOffice as dependency
+	-unoconv
+	-@office-suite
+	-libreoffice-core
+	-libreoffice-calc
+	-libreoffice-draw
+	-libreoffice-impress
+	-libreoffice-writer
+	-libreoffice-opensymbol-fonts
+	-libreoffice-ure
+	DELIM
+    )" >> /tmp/packages.ks
+fi
+printf '\n%s\n' '%end' >> /tmp/packages.ks
 
 
 # Take care about potentially low available entropy.
@@ -387,7 +479,7 @@ fi
 # our definition of "low".
 #
 # We handle this topic now as it is relevant for the following full disk
-# encryption.
+# encryption (even though Anaconda is also checking this in recent versions).
 i='0'
 entropy_avail="$(cat /proc/sys/kernel/random/entropy_avail)"
 while [ "${entropy_avail}" -lt 2048 ]
@@ -585,8 +677,7 @@ services --enabled="chronyd"
 
 
 ###### Packages
-%packages
-
+#
 # Notes:
 # - You can specify packages by environment, group, or by their package names.
 # - Get details of the available packages groups:
@@ -603,60 +694,7 @@ services --enabled="chronyd"
 #     @group
 #     simple-package
 #   Put a "-" in front for removal
-
-
-## packages to install
-
-# base
-@^minimal
-@core
-@base
-@hardware-monitoring
-chrony
-kexec-tools
-rng-tools
-
-# VM host (base)
-@virtualization-hypervisor
-@virtualization-tools
-virt-install
-virt-top
-libguestfs-tools
-
-# VM host (GUI)
-@x11
-@gnome-desktop
-@fonts
-@input-methods
-@internet-browser
-virt-manager
-virt-viewer
-
-
-## packages to remove
-
-# misc desktop packages
--cheese
--empathy
--totem
--totem-nautilus
--gnome-boxes
--gnome-contacts
--gnome-documents
--gnome-video-effects
-
-# office suite (sadly, GNOME comes with unoconv which brings LO)
--@office-suite
--libreoffice-core
--libreoffice-calc
--libreoffice-draw
--libreoffice-impress
--libreoffice-writer
--libreoffice-opensymbol-fonts
--libreoffice-ure
--unoconv
-
-%end
+%include /tmp/packages.ks
 
 
 
