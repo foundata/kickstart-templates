@@ -549,7 +549,7 @@ firstboot --enable
 #
 # Hints and notes:
 # - Get list of supported keyboard layouts: localectl list-keymaps
-keyboard --vckeymap=de-nodeadkeys --xlayouts='us (euro)','de (nodeadkeys)'
+keyboard 'us'
 
 # System language
 #
