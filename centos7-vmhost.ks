@@ -395,20 +395,20 @@ then
     # OS on different filesystem, more flexible, reduced risk of filled up root FS
     # 35840 + (5 x 10240) + 5120 + 2048 + 768 (boot) = 84736 MiB * 1024 = 86769664 bytes
     printf '%s\n' "$(cat <<-'DELIM'
-	logvol /         --vgname=vghost --name=os_root     --fstype="xfs"  --size=10240
-	logvol /home     --vgname=vghost --name=os_home     --fstype="xfs"  --size=2048
-	logvol /var      --vgname=vghost --name=os_var      --fstype="xfs"  --size=35840
-	logvol /var/tmp  --vgname=vghost --name=os_var_tmp  --fstype="xfs"  --size=10240
-	logvol /var/log  --vgname=vghost --name=os_var_log  --fstype="xfs"  --size=10240
-	logvol /tmp      --vgname=vghost --name=os_tmp      --fstype="xfs"  --size=10240
-	logvol swap      --vgname=vghost --name=os_swap     --fstype="swap" --size=5120
+	logvol /         --vgname=vg01 --name=os_root     --fstype="xfs"  --size=10240
+	logvol /home     --vgname=vg01 --name=os_home     --fstype="xfs"  --size=2048
+	logvol /var      --vgname=vg01 --name=os_var      --fstype="xfs"  --size=35840
+	logvol /var/tmp  --vgname=vg01 --name=os_var_tmp  --fstype="xfs"  --size=10240
+	logvol /var/log  --vgname=vg01 --name=os_var_log  --fstype="xfs"  --size=10240
+	logvol /tmp      --vgname=vg01 --name=os_tmp      --fstype="xfs"  --size=10240
+	logvol swap      --vgname=vg01 --name=os_swap     --fstype="swap" --size=5120
 	DELIM
     )" > /tmp/logvol.ks
 else
     # OS on single filesystem with at least 5 GiB, --grow as large as possible
     printf '%s\n' "$(cat <<-'DELIM'
-	logvol /         --vgname=vghost --name=os_root     --fstype="xfs"  --size=5120 --grow
-	logvol swap      --vgname=vghost --name=os_swap     --fstype="swap" --size=1024
+	logvol /         --vgname=vg01 --name=os_root     --fstype="xfs"  --size=5120 --grow
+	logvol swap      --vgname=vg01 --name=os_swap     --fstype="swap" --size=1024
 	DELIM
     )" > /tmp/logvol.ks
 fi
@@ -659,7 +659,7 @@ reqpart
 # Physical Extend (PE) size is not defined, default is 4096 bytes. A very high
 # number of PEs might slow down management tools but does NOT influence IO
 # performance (cf. manpage vgcreate(8), -s param)
-volgroup vghost pv.01
+volgroup vg01 pv.01
 
 # Create LVM Logical Volumes (LVs)
 # - For logvol parameter description, see "RHEL 7 Installation Guide,
