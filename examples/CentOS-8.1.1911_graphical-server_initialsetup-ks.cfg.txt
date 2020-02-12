@@ -1,0 +1,54 @@
+#version=RHEL8
+# X Window System configuration information
+xconfig  --startxonboot
+# License agreement
+eula --agreed
+# Use graphical install
+graphical
+# Network information
+network  --bootproto=dhcp --device=enp1s0 --ipv6=auto --no-activate
+network  --bootproto=dhcp --hostname=localhost.localdomain
+ignoredisk --only-use=vda
+# Use CDROM installation media
+cdrom
+# Run the Setup Agent on first boot
+firstboot --enable
+# System services
+services --disabled="chronyd"
+# Keyboard layouts
+keyboard --vckeymap=us --xlayouts='us'
+# System language
+lang en_US.UTF-8
+
+repo --name="AppStream" --baseurl=file:///run/install/repo/AppStream
+# Root password
+#   Snippet to create SHA512 crypt compatible user password hashes:
+#   python -c 'import crypt,getpass;pw=getpass.getpass();print(crypt.crypt(pw) if (pw==getpass.getpass("Confirm: ")) else exit())'
+rootpw --iscrypted [SHA512 crypt password hash, see above for snippet to create one]
+# System timezone
+timezone Europe/Berlin --isUtc --nontp
+#   Snippet to create SHA512 crypt compatible user password hashes:
+#   python -c 'import crypt,getpass;pw=getpass.getpass();print(crypt.crypt(pw) if (pw==getpass.getpass("Confirm: ")) else exit())'
+user --groups=wheel --name=user --password=[SHA512 crypt password hash, see above for snippet to create one] --iscrypted --gecos="user"
+# System bootloader configuration
+bootloader --location=none
+autopart --type=lvm
+# Partition clearing information
+clearpart --none --initlabel
+
+%packages
+@^graphical-server-environment
+kexec-tools
+
+%end
+
+%addon com_redhat_subscription_manager 
+%end
+%addon ADDON_placeholder --enable --reserve-mb=auto
+%end
+
+%anaconda
+pwpolicy root --minlen=6 --minquality=1 --notstrict --nochanges --notempty
+pwpolicy user --minlen=6 --minquality=1 --notstrict --nochanges --emptyok
+pwpolicy luks --minlen=6 --minquality=1 --notstrict --nochanges --notempty
+%end

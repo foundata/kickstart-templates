@@ -1,0 +1,49 @@
+#version=RHEL8
+ignoredisk --only-use=vda
+autopart --type=lvm
+# Partition clearing information
+clearpart --none --initlabel
+# Use graphical install
+graphical
+# Use CDROM installation media
+cdrom
+# Keyboard layouts
+keyboard --vckeymap=us --xlayouts='us'
+# System language
+lang en_US.UTF-8
+
+# Network information
+network  --bootproto=dhcp --device=enp1s0 --ipv6=auto --no-activate
+network  --hostname=localhost.localdomain
+repo --name="AppStream" --baseurl=file:///run/install/repo/AppStream
+# Root password
+#   Snippet to create SHA512 crypt compatible user password hashes:
+#   python -c 'import crypt,getpass;pw=getpass.getpass();print(crypt.crypt(pw) if (pw==getpass.getpass("Confirm: ")) else exit())'
+rootpw --iscrypted [SHA512 crypt password hash, see above for snippet to create one]
+# X Window System configuration information
+xconfig  --startxonboot
+# Run the Setup Agent on first boot
+firstboot --enable
+# System services
+services --disabled="chronyd"
+# System timezone
+timezone Europe/Berlin --isUtc --nontp
+#   Snippet to create SHA512 crypt compatible user password hashes:
+#   python -c 'import crypt,getpass;pw=getpass.getpass();print(crypt.crypt(pw) if (pw==getpass.getpass("Confirm: ")) else exit())'
+user --groups=wheel --name=user --password=[SHA512 crypt password hash, see above for snippet to create one] --iscrypted --gecos="user"
+
+%packages
+@^graphical-server-environment
+kexec-tools
+
+%end
+
+%addon com_redhat_kdump --enable --reserve-mb='auto'
+
+%end
+
+%anaconda
+pwpolicy root --minlen=6 --minquality=1 --notstrict --nochanges --notempty
+pwpolicy user --minlen=6 --minquality=1 --notstrict --nochanges --emptyok
+pwpolicy luks --minlen=6 --minquality=1 --notstrict --nochanges --notempty
+%end
