@@ -8,54 +8,62 @@ At this point in time, it is just a good starting point for further development
 setup of our bare metal VM host machines.
 
 
-### Tips and Trick
+## HowTo, Tips and Trick
 
-#### How to create CentOS 7 USB flash drive for installation
+### CentOS 7: USB flash drive including Kickstart for installation
 
 #### Preparations
 
-  1. Download the DVD ISO from https://www.centos.org/download/. Do not forget
-     to **verify the checksums**! Example:
-     ```
-     sha256sum ./CentOS-7-x86_64-DVD-1611.iso
-     c455ee948e872ad2194bdddd39045b83634e8613249182b88f549bb2319d97eb  ./CentOS-7-x86_64-DVD-1611.iso
-     ```
-  2. In principle you can use any distribution you like. But using the same OS
-     for media creation and target installation might save you from a lot
-     trouble (e.g. incompatible syslinux versions and resulting c32 errors).
-     So get a running box with the same OS version for USB installation media
-     creation.
+Download the DVD ISO from <https://www.centos.org/download/>. Do not forget
+to **verify the checksums**! Example:
 
-     * It might be clever to use the downloaded ISO to quickly setup a VM
-       including GUI for this task. Just use USB passthrough then to access the
-       USB flash drive.
-     * Hints for Virtual Box and CentOS
+```
+sha256sum ./CentOS-7-x86_64-DVD-1611.iso
+c455ee948e872ad2194bdddd39045b83634e8613249182b88f549bb2319d97eb  ./CentOS-7-x86_64-DVD-1611.iso
+```
 
-       * You might want to enable USB 3 for faster copy operations afterwards.
-       * Needed preparations to install guest additions:
-         ```
-         yum install @development
-         yum update
-         systemctl reboot
-         ```
+In principle you can use any distribution you like. But using the same OS
+for media creation and target installation might save you from a lot trouble
+(e.g. incompatible syslinux versions and resulting c32 errors).
 
+So get a running box with the same OS version for USB installation media
+creation (It might be clever to just use the downloaded ISO to quickly setup a
+VM including GUI for this task. Use USB passthrough then to access the USB
+flash drive).
 
+Hints for Virtual Box and CentOS:
+
+* You might want to enable USB 3 for faster copy operations afterwards.
+* USB 3 devices do not work on virtual USB 2 controllers (so the VirtualBox
+  extension pack is needed then).  
+* [Install guest additions](https://www.if-not-true-then-false.com/2010/install-virtualbox-guest-additions-on-fedora-centos-red-hat-rhel/):
+  ```
+  # Preparation
+  sudo yum install epel-release
+  sudo yum install gcc kernel-devel kernel-headers dkms make bzip2 perl
+  sudo yum update
+  sudo systemctl reboot
+  
+  # Install
+  export KERN_DIR=/usr/src/kernels/`uname -r`
+  # [... insert Guest addition media now and follow the instructions of
+  #     ./VBoxLinuxAdditions.run ... ]
+  ```
 
 #### Media creation
 
 Tasks:
 
-  * Partitioning on the USB flash drive:
-
-    1. `msdos` partition table
-    2. `sdX1`: FAT32, label `KSBOOT`, no description, bootable, 350 MiB.
-    3. `sdX2`: ext3, label `KSDATA`, no description, Rest of the storage (at
-       least as large as the ISO).
-
-  * Install syslinux on `/dev/sdX1` and copy `mbr.bin`
-  * Copy syslinux bootmenu files from the ISO to `/dev/sdX1` (`KSBOOT`)
-  * Copy ISO to `/dev/sdX2` (`KSDATA`)
-  * Adapt `syslinux.cfg` on `KSBOOT` and place the `ks.cfg` beside
+* Partitioning on the USB flash drive:
+  1. `msdos` partition table
+  2. `sdX1`: FAT32, label `KSBOOT`, no description, bootable, 350 MiB.
+  3. `sdX2`: ext3, label `KSDATA`, no description, Rest of the storage (at
+      least as large as the ISO).
+* Install [SYSLINUX](https://en.wikipedia.org/wiki/SYSLINUX) on `/dev/sdX1`
+  and copy `mbr.bin`
+* Copy the SYSLINUX bootmenu files from the ISO to `/dev/sdX1` (`KSBOOT`)
+* Copy ISO to `/dev/sdX2` (`KSDATA`)
+* Adapt `syslinux.cfg` on `KSBOOT` and place the `ks.cfg` beside
 
 Full working example to execute under CentOS (all data on `sdX` will be lost!)
 ```
@@ -128,7 +136,7 @@ sync
 
 
 ## adapt labels for a fitting boot menu / to use kickstart file
-# vi /mnt/tmpkickstart/boot/syslinux.cfg
+vi /mnt/tmpkickstart/boot/syslinux.cfg
 # [...]
 # See below for example
 
@@ -166,42 +174,43 @@ for more details and documentation.
 
 The `inst.gpt` boot parameter forces a GPT partition table
 even when the disk size is less than 2^32 sectors, cf.
-https://access.redhat.com/solutions/2210981.
+<https://access.redhat.com/solutions/2210981>.
 
 
 
-### Useful dev links, resources and notes
+## Further reading, useful links and notes
 
 **Documentation:**
 
-  * [RHEL7 Installation guide, 26.3. Kickstart Syntax Reference](https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/html/Installation_Guide/sect-kickstart-syntax.html)
-  * [RHEL7 Installation guide, 5.8. Automating the Installation with Kickstart](https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/html/Installation_Guide/sect-installation-planning-kickstart-x86.html)
-  * [RHEL 7 Anaconda Customization Guide, "3. Customizing the Boot Menu"](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/anaconda_customization_guide/sect-boot-menu-customization)
-  * man dracut.cmdline
+* [RHEL 7 Installation guide, 26.3. Kickstart Syntax Reference](https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/html/Installation_Guide/sect-kickstart-syntax.html)
+* [RHEL 7 Installation guide, 5.8. Automating the Installation with Kickstart](https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/html/Installation_Guide/sect-installation-planning-kickstart-x86.html)
+* [RHEL 7 Anaconda Customization Guide, "3. Customizing the Boot Menu"](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/anaconda_customization_guide/sect-boot-menu-customization)
+* `man dracut.cmdline`
+* [CentOS 8: Starting Kickstart installations](https://docs.centos.org/en-US/8-docs/advanced-install/assembly_starting-kickstart-installations/)
 
 
 **Tools:**
 
-  * https://github.com/coalfire/make-centos-bootstick
-  * [pykickstart](https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/6/html/Migration_Planning_Guide/sect-Migration_Guide-Installation-Graphical_Installer-Kickstart-pykickstart.html) provides [tools](https://github.com/rhinstaller/pykickstart/tree/master/tools) like `ksvalidator` and `ksdiff`.
-  * https://access.redhat.com/labsinfo/kickstartconfig -- but might be [broken](https://bugzilla.redhat.com/show_bug.cgi?id=1413292).
+* https://github.com/coalfire/make-centos-bootstick
+* https://github.com/coalfire/cent-mkiso
+* [pykickstart](https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/6/html/Migration_Planning_Guide/sect-Migration_Guide-Installation-Graphical_Installer-Kickstart-pykickstart.html) provides [tools](https://github.com/rhinstaller/pykickstart/tree/master/tools) like `ksvalidator` and `ksdiff`.
+* https://access.redhat.com/labsinfo/kickstartconfig -- but might be [broken](https://bugzilla.redhat.com/show_bug.cgi?id=1413292).
 
 
 **Examples, inspiration:**
 
-  * http://www.golinuxhub.com/2017/07/sample-kickstart-configuration-file-for.html -- useful examples, tips and tricks
-  * https://github.com/rhinstaller/kickstart-tests
-  * https://github.com/dapperlinux/dapper-kickstarts/blob/master/Kickstarts/fedora-live-workstation.ks
-  * https://github.com/dapperlinux/dapper-kickstarts/blob/master/Kickstarts/snippets/packagekit-cached-metadata.ks
-  * After installing a CentOS or Fedora box, you'll find the kickstart files Anaconda created by itself below `/root
+* http://www.golinuxhub.com/2017/07/sample-kickstart-configuration-file-for.html -- useful examples, tips and tricks
+* https://github.com/rhinstaller/kickstart-tests
+* https://github.com/dapperlinux/dapper-kickstarts/blob/master/Kickstarts/fedora-live-workstation.ks
+* https://github.com/dapperlinux/dapper-kickstarts/blob/master/Kickstarts/snippets/packagekit-cached-metadata.ks
+* After installing a CentOS or Fedora box, you'll find the kickstart files Anaconda created by itself below `/root`. You will also find some files below `/examples` in this repo.
 
 
 **On `%pre`, `%post`, variables:**
 
-  * https://serverfault.com/questions/608544/passing-variables-in-kickstart/609091#609091
-  * http://red.ht/1Dos5ED
-  * https://serverfault.com/questions/608544/passing-variables-in-kickstart
-  * http://jacobjwalker.effectiveeducation.org/blog/2014/11/30/passing-variables-from-the-pre-to-post-scripts-in-kickstart-on-ubuntu/
+* [Passing variables in kickstart](https://serverfault.com/questions/608544/passing-variables-in-kickstart), especially [answer 609091](https://serverfault.com/questions/608544/passing-variables-in-kickstart/609091#609091)
+* [RHEL 7 Installation guide, 26.3. Kickstart Syntax Reference](https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/html/Installation_Guide/sect-kickstart-syntax.html)
+  * [Passing Variables from the %Pre to %Post scripts in Kickstart on Ubuntu](http://jacobjwalker.effectiveeducation.org/blog/2014/11/30/passing-variables-from-the-pre-to-post-scripts-in-kickstart-on-ubuntu/)
   * http://www.golinuxhub.com/2017/07/sample-kickstart-configuration-file-for.html (at the end of the page)
   * http://www.golinuxhub.com/2017/05/how-to-perform-interactive-kickstart.html
   * `%pre` might write into `/tmp`, the kickstart does an `%include /tmp/foo`. Direct varpassing seems to be impossible, so one has to write complete kickstart commands. %pre can pass values to `%post` by using a ram disk (see links above for details) and you might user `%post` then to adapt the installation kickstart did. You might use multiple `%post` sections, with or without `--chroot` option to access the target system.

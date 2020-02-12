@@ -24,7 +24,8 @@ usecase. Use `%include` to put them together instead of repeating yourself
 ...
 ```
 
-http://www2.math.uu.se/~chris/kickstart/ provides interesting thoughts on this.
+http://www2.math.uu.se/~chris/kickstart/ (Mirror: http://archive.is/Nq0nM)
+provides interesting thoughts on this.
 
 
 ## Bugfix: Sysliinux/dracut/Anaconda: Media validation rd.live.check not working
