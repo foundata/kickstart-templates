@@ -1,4 +1,4 @@
-#version=DEVEL
+#version=RHEL7
 
 
 #### Pre-install scripts
@@ -33,7 +33,7 @@ data_hostname=''
 data_domainname=''
 data_drive=''
 data_dmcrypt_pwdplain=''
-data_packages_vmhostgui=''
+data_hostwithgui=''
 
 
 # This kickstart file is just a helper, configuring *most* but not *all* things.
@@ -174,29 +174,34 @@ then
                           'reserved (cf. RFC 2606, http://tools.ietf.org/html/rfc2606). Therefore you' \
                           "cannot use \"${data_domainname}\"."
         elif [ "${#fqdntest}" -gt 255 ] &&
-             printf '%s' "${data_domainname}" | grep -E -q -e "${regex_domainname}"
+            printf '%s' "${data_domainname}" | grep -E -q -e "${regex_domainname}"
         then
             printf '%s\n' 'Error: Your domain name itself is valid but the resulting fully qualified' \
                           "domain name (FQDN) (-> \"${data_hostname}.your-domainname.\") has to be" \
                           'shorter than 256 chars.'
         elif ! printf '%s' "${data_domainname}" | grep -E -q -e "${regex_domainname}"
         then
-            printf '%s\n' 'Error: Your input is no valid/useable domain name (cf. "Naming rules" above).'
-        else
-            # warn in case of 'local' domain but let him decide what to do
-            if [ "${data_domainname}" = 'local' ]
+            # warn in case of regex fail but let user decide what to do
+            printf '%s\n' 'Warning: Your input seems not to be a valid/useable domain name (cf. "Naming rules"'
+            printf        'above). Do you really want to use "%s" as domain name? [y|n]: ' "${data_domainname}"
+            if { IFS= read -r in; printf '%s' "${in}"; } | grep -E -q -e "$( (command -v 'locale' && locale yesexpr) || printf '^[jJyY].*')"
             then
-                printf '%s\n' 'Warning: You should NOT use "local" as domain name. For example, the .local' \
-                              'TLD is used for mDNS and other zero-conf-services.'
-                printf 'Do you really want to use "local" as domain name? [y|n]: '
-                if { IFS= read -r in; printf '%s' "${in}"; } | grep -E -q -e "$( (command -v 'locale' && locale yesexpr) || printf '^[jJyY].*')"
-                then
-                    printf 'Using "%s".\n' "${data_domainname}"
-                    break 1 # input was valid
-                fi
-            else
-                break 1 # input was valid
+                printf 'Using "%s".\n' "${data_domainname}"
+                break 1 # input was invalid but user ignored warning
             fi
+        elif [ "${data_domainname}" = 'local' ]
+        then
+            # warn in case of 'local' domain but let user decide what to do
+            printf '%s\n' 'Warning: You should NOT use "local" as domain name. For example, the .local' \
+                          'TLD is used for mDNS and other zero-conf-services.'
+            printf 'Do you really want to use "local" as domain name? [y|n]: '
+            if { IFS= read -r in; printf '%s' "${in}"; } | grep -E -q -e "$( (command -v 'locale' && locale yesexpr) || printf '^[jJyY].*')"
+            then
+                printf 'Using "%s".\n' "${data_domainname}"
+                break 1 # input was invalid but user ignored warning
+            fi
+        else
+            break 1 # input was valid
         fi
         if [ -n "${valsuggestion}" ] &&
            [ "${valsuggestion}" = "${data_domainname}" ]
@@ -353,16 +358,16 @@ fi
 
 
 # ask if there should be a GUI or not
-if [ -z "${data_packages_vmhostgui}" ]
+if [ -z "${data_hostwithgui}" ]
 then
     printf 'Step 5: Server with GUI\n\n'
     printf 'Do you want to install a desktop environment? [y|n]: '
     if { IFS= read -r i; printf '%s' "${i}"; } | grep -E -q -e "$( (command -v 'locale' && locale yesexpr) || printf '^[jJyY].*')"
     then
-        data_packages_vmhostgui='true'
+        data_hostwithgui='true'
         printf 'Ok, Going to install GNOME.\n'
     else
-        data_packages_vmhostgui='false'
+        data_hostwithgui='false'
         printf 'OK, there will be no GUI.\n'
     fi
     printf '\n\n'
@@ -412,6 +417,22 @@ else
 	DELIM
     )" > /tmp/logvol.ks
 fi
+# gui.ks
+if [ -n "${data_hostwithgui}" ] &&
+   [ "${data_hostwithgui}" = "true" ]
+then
+    printf '%s\n' "$(cat <<-'DELIM'
+	# X Window System configuration information
+	xconfig --startxonboot
+	DELIM
+    )" > /tmp/gui.ks
+else
+    printf '%s\n' "$(cat <<-'DELIM'
+	# Do not configure the X Window System
+	skipx
+	DELIM
+    )" > /tmp/gui.ks
+fi
 # packages.ks
 printf '%s\n\n' '%packages' > /tmp/packages.ks # line not included in HEREDOC, otherwise %package makes Anaconda believe that the %pre section is not closed correctly
 printf '%s\n' "$(cat <<-'DELIM'
@@ -432,8 +453,8 @@ virt-top
 libguestfs-tools
 DELIM
 )" >> /tmp/packages.ks
-if [ -n "${data_packages_vmhostgui}" ] &&
-   [ "${data_packages_vmhostgui}" = "true" ]
+if [ -n "${data_hostwithgui}" ] &&
+   [ "${data_hostwithgui}" = "true" ]
 then
     printf '%s\n' "$(cat <<-'DELIM'
 	### VM host (GUI)
@@ -515,9 +536,6 @@ exec < /dev/tty1 > /dev/tty1 2> /dev/tty1
 
 # use graphical install
 graphical
-
-# X Window System configuration information
-xconfig --startxonboot
 
 # use CDROM installation media
 # Note: this is also the option for USB keys and other none-network sources
@@ -674,6 +692,9 @@ volgroup vg01 pv.01
 
 services --enabled="chronyd"
 
+
+###### GUI: (no) X Window System
+%include /tmp/gui.ks
 
 
 ###### Packages
