@@ -10,7 +10,53 @@ setup of our bare metal VM host machines.
 
 ## HowTo, Tips and Trick
 
-### CentOS 7: USB flash drive including Kickstart for installation
+### CentOS 7/8: automatically load Kickstart file from additional storage device
+
+The CentOS setup can load your Kickstart file automatically without having to
+specify the `inst.ks=` boot option. To do so, one name the file `ks.cfg` and
+place it on a storage volume labeled `OEMDRV` (cf. [RHEL 7 installation guide:
+26.2.5. Starting the Kickstart Installation](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/installation_guide/sect-kickstart-howto#sect-kickstart-installation-starting)).
+One You can use ext2/3/4 or XFS as filesystem.
+
+
+The following explains how to prepare [prepare a USB key with label `OEMDRV`](https://docs.centos.org/en-US/8-docs/advanced-install/assembly_making-kickstart-files-available-to-the-installation-program/#making-a-kickstart-file-available-on-a-local-volume-for-automatic-loading_making-kickstart-files-available-to-the-installation-program) on the terminal (`gparted` as UI would also be sufficient):
+
+```
+## define path of USB flash drive
+lsblk -l -p
+TARGETDEVICE='/dev/sdX'
+KICKSTARTFILE='/path/to/your/kickstart.file.ks'
+
+## partitioning
+sudo parted "${TARGETDEVICE}" mktable msdos 
+sudo parted "${TARGETDEVICE}" mkpart primary 0% 100%
+
+## create filesystem and label it
+# Hint if you need to manually adjust the label of an existing filesystem:
+# ext2/3/4:   e2label "${TARGETDEVICE}1" 'OEMDRV'
+# cfs:        xfs_admin -L 'OEMDRV' "${TARGETDEVICE}1"
+sudo mkfs.xfs -f -L 'OEMDRV' "${TARGETDEVICE}1"
+lsblk -l -p
+
+## copy your kickstart file on the USB flash drive
+sudo mkdir -p '/mnt/tmpkickstart/'
+sudo mount "${TARGETDEVICE}1" '/mnt/tmpkickstart/'
+sudo cp "${KICKSTARTFILE}" '/mnt/tmpkickstart/ks.cfg'
+sudo chmod 0664 '/mnt/tmpkickstart/ks.cfg'
+
+## clean up
+sync
+sudo umount /mnt/tmpkickstart/
+sudo rm -rf "/mnt/tmpkickstart/"
+```
+
+
+Now just boot and make sure the additional USB key is present when the installation media starts.
+
+
+
+
+### CentOS 7: Custom USB flash drive including the Kickstart file for installation
 
 #### Preparations
 
@@ -68,14 +114,15 @@ Tasks:
 Full working example to execute under CentOS (all data on `sdX` will be lost!)
 ```
 ## define path of USB flash drive and ISO
-TARGET='/dev/sdX'
+TARGETDEVICE='/dev/sdX'
 ISOFILE='/path/to/centos/dvd.iso'
+KICKSTARTFILE='/path/to/your/kickstart.file.ks'
 
 ## verify
 sha256sum "${ISOFILE}"
 
 ## partitioning
-sudo fdisk "${TARGET}"
+sudo fdisk "${TARGETDEVICE}"
 o
     Building a new DOS disklabel with disk identifier 0x94a6972d.
 n
@@ -110,14 +157,14 @@ w
     The partition table has been altered!
 
 ## create file systems
-sudo mkfs.vfat -n 'KSBOOT' "${TARGET}1"
-sudo mkfs.ext3 -L "KSDATA" "${TARGET}2"
+sudo mkfs.vfat -n 'KSBOOT' "${TARGETDEVICE}1"
+sudo mkfs.ext3 -L "KSDATA" "${TARGETDEVICE}2"
 
 
 ## write MBR, install syslinux on boot partition
-yum install syslinux
-dd conv=notrunc bs=440 count=1 if='/usr/share/syslinux/mbr.bin' of="${TARGET}"
-syslinux "${TARGET}1"
+sudo yum install syslinux
+sudo dd conv=notrunc bs=440 count=1 if='/usr/share/syslinux/mbr.bin' of="${TARGETDEVICE}"
+syslinux "${TARGETDEVICE}1"
 
 
 ## copy data from ISO to USB flash drive
@@ -125,9 +172,9 @@ mkdir -p '/mnt/tmpkickstart/boot'
 mkdir -p '/mnt/tmpkickstart/data'
 mkdir -p '/mnt/tmpkickstart/iso'
 
-mount "${TARGET}1" '/mnt/tmpkickstart/boot'
-mount "${TARGET}2" '/mnt/tmpkickstart/data'
-mount "${ISOFILE}" '/mnt/tmpkickstart/iso'
+sudo mount "${TARGETDEVICE}1" '/mnt/tmpkickstart/boot'
+sudo mount "${TARGETDEVICE}2" '/mnt/tmpkickstart/data'
+sudp mount "${ISOFILE}" '/mnt/tmpkickstart/iso'
 
 cp /mnt/tmpkickstart/iso/isolinux/* '/mnt/tmpkickstart/boot'
 mv '/mnt/tmpkickstart/boot/isolinux.cfg' '/mnt/tmpkickstart/boot/syslinux.cfg'
@@ -142,11 +189,11 @@ vi /mnt/tmpkickstart/boot/syslinux.cfg
 
 
 ## copy your kickstart file on the USB flash drive
-cp '/path/to/your/kickstart.file.ks' '/mnt/tmpkickstart/boot/ks.cfg'
+cp "${KICKSTARTFILE}" '/mnt/tmpkickstart/boot/ks.cfg'
 
 
 ## clean up
-umount /mnt/tmpkickstart/*
+sudo umount /mnt/tmpkickstart/*
 rm -rf "/mnt/tmpkickstart/"
 ```
 
@@ -186,6 +233,8 @@ even when the disk size is less than 2^32 sectors, cf.
 * [RHEL 7 Installation guide, 5.8. Automating the Installation with Kickstart](https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/html/Installation_Guide/sect-installation-planning-kickstart-x86.html)
 * [RHEL 7 Anaconda Customization Guide, "3. Customizing the Boot Menu"](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/anaconda_customization_guide/sect-boot-menu-customization)
 * `man dracut.cmdline`
+* [RHEL 8 Installation Guide: Appendix A. Kickstart script file format reference](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/performing_an_advanced_rhel_installation/kickstart-script-file-format-reference_installing-rhel-as-an-experienced-user)
+  * Especcially [A.2. Package selection in Kickstart](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/performing_an_advanced_rhel_installation/kickstart-script-file-format-reference_installing-rhel-as-an-experienced-user#package-selection-in-kickstart_kickstart-script-file-format-reference)
 * [CentOS 8: Starting Kickstart installations](https://docs.centos.org/en-US/8-docs/advanced-install/assembly_starting-kickstart-installations/)
 
 
@@ -195,6 +244,8 @@ even when the disk size is less than 2^32 sectors, cf.
 * https://github.com/coalfire/cent-mkiso
 * [pykickstart](https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/6/html/Migration_Planning_Guide/sect-Migration_Guide-Installation-Graphical_Installer-Kickstart-pykickstart.html) provides [tools](https://github.com/rhinstaller/pykickstart/tree/master/tools) like `ksvalidator` and `ksdiff`.
 * https://access.redhat.com/labsinfo/kickstartconfig -- but might be [broken](https://bugzilla.redhat.com/show_bug.cgi?id=1413292).
+# https://access.redhat.com/labsinfo/kickstartconvert
+# 
 
 
 **Examples, inspiration:**

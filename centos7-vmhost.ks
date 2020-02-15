@@ -486,10 +486,10 @@ while [ "${entropy_avail}" -lt 2048 ]
 do
     i="$((${i}+1))"
     printf '%s\n' "Warning: The available entropy (${entropy_avail}) is rather low. This loop will end" \
-                  "         whether there is enough entropy or after "$((12-${i}))" remaining iterations." \
+                  "         whether there is enough entropy or after "$((6-${i}))" remaining iterations." \
                   '         Checking again in 10s..."'
     sleep '10s'
-    if [ "${i}" -ge 12 ]
+    if [ "${i}" -ge 6 ]
     then
         break 1
     fi
@@ -700,7 +700,7 @@ services --enabled="chronyd"
 
 #### Kdump
 # Disabled on this machine (as we do not have support for CentOS nor usually
-# need this on a default system for debugging - one might configure it later
+# need this on a default system for debugging) - one might configure it later
 # in /etc/kdump.conf if needed.
 %addon com_redhat_kdump com_redhat_kdump --disable
 

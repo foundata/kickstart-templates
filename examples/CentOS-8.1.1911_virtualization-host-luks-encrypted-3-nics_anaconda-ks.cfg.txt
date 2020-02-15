@@ -1,0 +1,52 @@
+#version=RHEL8
+ignoredisk --only-use=sda
+autopart --encrypted --type=lvm --luks-version=luks1
+# Partition clearing information
+clearpart --none --initlabel
+# Use graphical install
+graphical
+# Use CDROM installation media
+cdrom
+# Keyboard layouts
+keyboard --vckeymap=us --xlayouts='us'
+# System language
+lang en_US.UTF-8
+
+# Network information
+network  --bootproto=dhcp --device=enp0s3 --ipv6=auto --activate
+network  --bootproto=dhcp --device=enp0s8 --onboot=off --ipv6=auto
+network  --bootproto=dhcp --device=enp0s9 --onboot=off --ipv6=auto
+network  --hostname=localhost.localdomain
+repo --name="AppStream" --baseurl=file:///run/install/repo/AppStream
+# Root password
+#   Snippet to create SHA512 crypt compatible user password hashes:
+#   python -c 'import crypt,getpass;pw=getpass.getpass();print(crypt.crypt(pw) if (pw==getpass.getpass("Confirm: ")) else exit())'
+rootpw --iscrypted [SHA512 crypt password hash, see above for snippet to create one]
+# Run the Setup Agent on first boot
+firstboot --enable
+# Do not configure the X Window System
+skipx
+# System services
+services --enabled="chronyd"
+# System timezone
+timezone America/New_York --isUtc
+#   Snippet to create SHA512 crypt compatible user password hashes:
+#   python -c 'import crypt,getpass;pw=getpass.getpass();print(crypt.crypt(pw) if (pw==getpass.getpass("Confirm: ")) else exit())'
+user --groups=wheel --name=user --password=[SHA512 crypt password hash, see above for snippet to create one] --iscrypted --gecos="user"
+
+%packages
+@^virtualization-host-environment
+kexec-tools
+
+%end
+
+%addon com_redhat_kdump --enable --reserve-mb='auto'
+
+%end
+
+%anaconda
+pwpolicy root --minlen=6 --minquality=1 --notstrict --nochanges --notempty
+pwpolicy user --minlen=6 --minquality=1 --notstrict --nochanges --emptyok
+pwpolicy luks --minlen=6 --minquality=1 --notstrict --nochanges --notempty
+%end
+
