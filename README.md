@@ -10,12 +10,35 @@ setup of our bare metal VM host machines.
 
 ## HowTo, Tips and Trick
 
-### CentOS 7/8: automatically load Kickstart file from additional storage device
+
+### Validate Kickstart file, show differences between versions
+
+[pykickstart](https://pykickstart.readthedocs.io/en/latest/kickstart-docs.html) 
+provides [tools](https://github.com/rhinstaller/pykickstart/tree/master/tools) like
+`ksvalidator` and `ksdiff`. It makes sense to simply run them on the latest
+Fedora release by installing the `pykickstart` package.
+
+```
+# install needed package
+sudo dnf install pykickstart
+
+# list available kickstart syntax versions
+ksverdiff --list
+
+# show differences
+ksverdiff --from RHEL7 --to RHEL8
+
+# validate a file
+ksvalidator ./foo.ks
+```
+
+
+### CentOS 7/8: automatically load Kickstart file from `OEMDRV`storage device
 
 The CentOS setup can load your Kickstart file automatically without having to
 specify the `inst.ks=` boot option. To do so, one name the file `ks.cfg` and
-place it on a storage volume labeled `OEMDRV` (cf. [RHEL 7 installation guide:
-26.2.5. Starting the Kickstart Installation](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/installation_guide/sect-kickstart-howto#sect-kickstart-installation-starting)).
+place it on an additional storage volume labeled `OEMDRV` (cf. [RHEL 7
+installation guide: 26.2.5. Starting the Kickstart Installation](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/installation_guide/sect-kickstart-howto#sect-kickstart-installation-starting)).
 One You can use ext2/3/4 or XFS as filesystem.
 
 
@@ -55,8 +78,25 @@ Now just boot and make sure the additional USB key is present when the installat
 
 
 
+### CentOS 7/8: Create USB flash drive installation media
+
+Just validate your ISO and write it with `dd` to the target device `/dev/sdX`
+(adapt as needed). For sure, all data (if any) on the target will get detroyed.
+
+Example:
+
+```
+$ sha256sum ./CentOS-8.1.1911-x86_64-dvd1.iso 
+3ee3f4ea1538e026fff763e2b284a6f20b259d91d1ad5688f5783a67d279423b  ./CentOS-8.1.1911-x86_64-dvd1.iso
+
+$ sudo dd if=./CentOS-8.1.1911-x86_64-dvd1.iso of=/dev/sdX bs=8M status=progress oflag=direct && sync
+```
+
 
 ### CentOS 7: Custom USB flash drive including the Kickstart file for installation
+
+Attention: the following method will only work with **Legacy BIOS boot**. The
+USB Flash drive **will not boot with UEFI**. 
 
 #### Preparations
 
