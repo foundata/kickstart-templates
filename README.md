@@ -13,7 +13,7 @@ setup of our bare metal VM host machines.
 
 ### Validate Kickstart file, show differences between versions
 
-[pykickstart](https://pykickstart.readthedocs.io/en/latest/kickstart-docs.html) 
+[pykickstart](https://pykickstart.readthedocs.io/en/latest/kickstart-docs.html)
 provides [tools](https://github.com/rhinstaller/pykickstart/tree/master/tools) like
 `ksvalidator` and `ksdiff`. It makes sense to simply run them on the latest
 Fedora release by installing the `pykickstart` package.
@@ -51,7 +51,7 @@ TARGETDEVICE='/dev/sdX'
 KICKSTARTFILE='/path/to/your/kickstart.file.ks'
 
 ## partitioning
-sudo parted "${TARGETDEVICE}" mktable msdos 
+sudo parted "${TARGETDEVICE}" mktable msdos
 sudo parted "${TARGETDEVICE}" mkpart primary 0% 100%
 
 ## create filesystem and label it
@@ -86,17 +86,41 @@ Just validate your ISO and write it with `dd` to the target device `/dev/sdX`
 Example:
 
 ```
-$ sha256sum ./CentOS-8.1.1911-x86_64-dvd1.iso 
+$ sha256sum ./CentOS-8.1.1911-x86_64-dvd1.iso
 3ee3f4ea1538e026fff763e2b284a6f20b259d91d1ad5688f5783a67d279423b  ./CentOS-8.1.1911-x86_64-dvd1.iso
 
 $ sudo dd if=./CentOS-8.1.1911-x86_64-dvd1.iso of=/dev/sdX bs=8M status=progress oflag=direct && sync
 ```
 
 
+### Debugging Hints
+
+After Anaconda (the graphical installer) started, there are differen TTYs /
+terminals you can switch to (via Ctrl+Alt+F<Number> ort Alt+F<Number>):
+
+* **TTY1:** Main information screen before starting the graphical installer
+  (Anaconda). As well as the installation dialog when using `text` or `cmdline`.
+* **TTY2:** A root shell. Useful commands and hints:
+  * `/tmp/ks-script-XXX`: A script defined in `%pre`. So you can inspect or
+    (re-)run.
+  * A Kickstartfile from a `OEMDRV` gets copied to `/run/install/ks.cfg`. If
+    nothing exists, check if `mkdir /run/foo && mount /dev/sdX1 /run/foo`
+    works.
+  * `lsblk -l -p`
+* **TTY3**
+  * The install log displaying messages from install program
+* **TTY4**
+  * The system log displaying messages from kernel, etc.
+* **TTY5**
+  * All other messages
+* **TTY7**
+  * The installation dialog when using the graphical installer.
+
+
 ### CentOS 7: Custom USB flash drive including the Kickstart file for installation
 
 Attention: the following method will only work with **Legacy BIOS boot**. The
-USB Flash drive **will not boot with UEFI**. 
+USB Flash drive **will not boot with UEFI**.
 
 #### Preparations
 
@@ -121,7 +145,7 @@ Hints for Virtual Box and CentOS:
 
 * You might want to enable USB 3 for faster copy operations afterwards.
 * USB 3 devices do not work on virtual USB 2 controllers (so the VirtualBox
-  extension pack is needed then).  
+  extension pack is needed then).
 * [Install guest additions](https://www.if-not-true-then-false.com/2010/install-virtualbox-guest-additions-on-fedora-centos-red-hat-rhel/):
   ```
   # Preparation
@@ -129,7 +153,7 @@ Hints for Virtual Box and CentOS:
   sudo yum install gcc kernel-devel kernel-headers dkms make bzip2 perl
   sudo yum update
   sudo systemctl reboot
-  
+
   # Install
   export KERN_DIR=/usr/src/kernels/`uname -r`
   # [... insert Guest addition media now and follow the instructions of
@@ -284,8 +308,8 @@ even when the disk size is less than 2^32 sectors, cf.
 * https://github.com/coalfire/cent-mkiso
 * [pykickstart](https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/6/html/Migration_Planning_Guide/sect-Migration_Guide-Installation-Graphical_Installer-Kickstart-pykickstart.html) provides [tools](https://github.com/rhinstaller/pykickstart/tree/master/tools) like `ksvalidator` and `ksdiff`.
 * https://access.redhat.com/labsinfo/kickstartconfig -- but might be [broken](https://bugzilla.redhat.com/show_bug.cgi?id=1413292).
-# https://access.redhat.com/labsinfo/kickstartconvert
-# 
+* https://access.redhat.com/labsinfo/kickstartconvert
+* https://github.com/Scout24/kickstart-debugger
 
 
 **Examples, inspiration:**
