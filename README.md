@@ -9,12 +9,12 @@ setup of our bare metal VM host machines.
 
 ## Table of Contents
 
-  * [HowTo, Tips and Tricks](#howto-tips-and-trick)
+  * [HowTo, Tips and Tricks](#howto-tips-and-tricks)
     * [Validate Kickstart file, show differences between versions](#validate-kickstart-file-show-differences-between-versions)
-    * [CentOS 7/8: automatically load Kickstart file from OEMDRVstorage device](#centos-78-automatically-load-kickstart-file-from-oemdrvstorage-device)
-    * [CentOS 7/8: Create USB flash drive installation media](#centos-78-create-usb-flash-drive-installation-media)
     * [Debugging Hints](#debugging-hints)
-    * [CentOS 7: Custom USB flash drive including the Kickstart file for installation](#centos-7-custom-usb-flash-drive-including-the-kickstart-file-for-installation)
+    * [Automatically load Kickstart file from OEMDRV storage device](#automatically-load-kickstart-file-from-oemdrv-storage-device)
+    * [Create USB flash drive CentOS installation media](#create-usb-flash-drive-centos-installation-media)
+    * [Custom USB flash drive including a Kickstart file for installation](#custom-usb-flash-drive-including-a-kickstart-file-for-installation)
       * [Preparations](#preparations)
       * [Media creation](#media-creation)
   * [Further reading, useful links and notes](#further-reading-useful-links-and-notes)
@@ -53,8 +53,8 @@ ksvalidator ./foo.ks
 
 ### Debugging Hints
 
-After Anaconda (the graphical installer) started, there are differen TTYs /
-terminals you can switch to (via `Ctrl+Alt+F<Number>` ort `Alt+F<Number>`):
+After Anaconda (the graphical installer) started, there are different TTYs /
+terminals you can switch to (via `Ctrl+Alt+F<Number>` or `Alt+F<Number>`):
 
 * **TTY1:** Main information screen before starting the graphical installer
   (Anaconda). As well as the installation dialog when using `text` or `cmdline`.
@@ -66,16 +66,21 @@ terminals you can switch to (via `Ctrl+Alt+F<Number>` ort `Alt+F<Number>`):
     works.
   * `lsblk -l -p`
 * **TTY3**
-  * The install log displaying messages from install program.
+  * Install log: The install log displaying messages from install program (if any)
 * **TTY4**
-  * The system log displaying messages from kernel, etc.
+  * Strorage log: The system log displaying messages from kernel, etc.
 * **TTY5**
-  * All other messages.
+  * Program log: All other messages.
 * **TTY7**
   * The installation dialog when using the graphical installer.
 
 
-### CentOS 7/8: automatically load Kickstart file from `OEMDRV`storage device
+
+### Automatically load Kickstart file from `OEMDRV` storage device
+
+**Attention / FIXME:** There seems to be a bug in CentOS 8 (including 8.1.1911)
+preventing this automatism to work (at least it did not in our tests). You
+can add `inst.ks=hd:sdX1/ks.cfg` to he setup command line as workaround.
 
 The CentOS setup can load your Kickstart file automatically without having to
 specify the `inst.ks=` boot option. To do so, one name the file `ks.cfg` and
@@ -120,7 +125,7 @@ Now just boot and make sure the additional USB key is present when the installat
 
 
 
-### CentOS 7/8: Create USB flash drive installation media
+### Create USB flash drive CentOS installation media
 
 Just validate your ISO and write it with `dd` to the target device `/dev/sdX`
 (adapt as needed). For sure, all data (if any) on the target will get detroyed.
@@ -135,10 +140,11 @@ $ sudo dd if=./CentOS-8.1.1911-x86_64-dvd1.iso of=/dev/sdX bs=8M status=progress
 ```
 
 
-### CentOS 7: Custom USB flash drive including the Kickstart file for installation
+### Custom USB flash drive including a Kickstart file for installation
 
 Attention: the following method will only work with **Legacy BIOS boot**. The
-USB Flash drive **will not boot with UEFI**.
+USB Flash drive **will not boot with UEFI**. This method propaply **does not
+work with CentOS 8** (or at least needs adaption).
 
 #### Preparations
 
@@ -500,7 +506,7 @@ KS_SNIPPET_PACKAGES="
 
 ${KS_SNIPPET_PACKAGES}
 
-### Additional packages or package groups not dependend on the environment
+### Additional packages or package groups (not depended on the environment)
 @virtualization-hypervisor
 @virtualization-tools
 chrony
@@ -512,7 +518,6 @@ virt-top
 %end
 "
 
-# FIXME
 export KS_SNIPPET_NETWORK
 export KS_SNIPPET_IGNOREDISK
 export KS_SNIPPET_BOOTLOADER
@@ -532,6 +537,6 @@ envsubst "$MYVARS" <./template.ks >/tmp/result.ks
 #### Kickstart via webserver or DHCP
 
 * How to generate and serve kickstart file dynamically and use it with `inst.ks=http://`
-* HTTPS/TLS possible?
+* HTTPS/TLS possible? Cf. [5.3. Making a Kickstart file available on an HTTP or HTTPS server](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/performing_an_advanced_rhel_installation/making-kickstart-files-available-to-the-installation-program_installing-rhel-as-an-experienced-user#making-a-kickstart-file-available-on-an-http-or-https-server_making-kickstart-files-available-to-the-installation-program)
 * How does this work in terms of network config from syslinux boot menu? Cf. https://www.redhat.com/archives/kickstart-list/2007-July/msg00035.html
 * Existing projects or create one in golang, basic HTTP server and templating?

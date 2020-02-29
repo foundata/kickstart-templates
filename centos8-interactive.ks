@@ -1,7 +1,14 @@
-#version=RHEL7
+#version=RHEL8
+
+################################################################################
+# Kickstart file for semi-automatic installation of server systems (minimal or
+# GUI with GNOME).
+#
+# Purpose: implementing password, encryption and partitioning rules of Foundata
+################################################################################
 
 
-#### Pre-install scripts
+#### Pre script
 #
 # Attention: Kickstart commands do NOT run until *after* the %pre section,
 #            despite the ordering in the kickstart file.
@@ -12,10 +19,10 @@
 #   code in file below /tmp/, using %import on them afterwards.
 # - You cannot change anything on the not-yet-installed system here.
 #   If really needed, "%post --nochroot" might help.
-# - RHEL 7 Installation Guide, 26.3.3. Pre-installation Script, red.ht/2uUrzzU
+# - RHEL 8: Performing an advanced RHEL installation:
+#   A.3.1 %pre script, red.ht/39aLxtD
+%pre --interpreter=/usr/bin/bash --erroronfail --log=/tmp/ks-pre.log
 
-
-%pre
 # Switch to /dev/tty6 (tty = TeleTYpewriter) for text console, redirect all
 # input and output, make /dev/tty6 the foreground terminal and start a shell
 # on it. The graphical interface (and therefore Anaconda) lives on /dev/tty1.
@@ -26,7 +33,7 @@ chvt 6
 # define regular expressions for input validation
 readonly regex_hostname='^[[:lower:]]([[:lower:][:digit:]\-]{0,61}[[:lower:][:digit:]])?$'
 readonly regex_domainname='^[[:lower:][:digit:]][[:lower:][:digit:]\-\.]{1,252}[[:lower:][:digit:]]$' # some domain NICs allow leading numbers and stuff; we cannot be stricter than them if we won't refuse really existing domains
-readonly regex_dmcryptpwd='^[[:alnum:][:punct:]]{20,}$' # ATTENTION: has to stricter or in sync than kickstart cmd "pwpolicy luks".
+readonly regex_dmcryptpwd='^[[:alnum:][:punct:]]{20,}$' # ATTENTION: has to be stricter or in sync than kickstart cmd "pwpolicy luks".
 
 # init misc vars
 data_hostname=''
@@ -323,7 +330,7 @@ then
             then
                 printf '%s\n' 'Error: Empty passwords are not allowed.'
             elif [ -z "${pwdscore}" ] ||
-                 [ "${pwdscore}" -lt 50 ] # ATTENTION: has to stricter or in sync than kickstart cmd "pwpolicy luks"
+                 [ "${pwdscore}" -lt 50 ] # ATTENTION: has to be stricter or in sync than kickstart cmd "pwpolicy luks"
             then
                 printf '%s\n' "Error: Password is too weak (cf. \"Password rules\" above). pwscore result: ${pwdscore}"
             elif ! printf '%s' "${data_dmcrypt_pwdplain}" | grep -E -q -e "${regex_dmcryptpwd}"
@@ -351,7 +358,7 @@ then
         done
         unset pwdconfirm
     else
-        printf 'Ok, system will be unencrypted.\n'
+        printf 'Ok, system will NOT be encrypted.\n'
     fi
     printf '\n\n'
 fi
@@ -386,7 +393,7 @@ printf '%s\n' "bootloader --append=\" crashkernel=auto \" --location=\"mbr\" --b
 # clearpart.ks
 printf '%s\n' "clearpart --all --drives=${data_drive}" > /tmp/clearpart.ks
 # part-boot.ks
-printf '%s\n' "part /boot --fstype=\"xfs\" --ondisk=${data_drive} --size=768" > /tmp/part-boot.ks
+printf '%s\n' "part /boot --fstype=\"xfs\" --ondisk=${data_drive} --size=1024" > /tmp/part-boot.ks
 # part-pv.ks
 if [ -z "${data_dmcrypt_pwdplain}" ]
 then
@@ -397,8 +404,7 @@ fi
 # logvol.ks
 if [ "$(printf '%d' $(cat '/proc/partitions' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | grep -E -e "${data_drive}\$" | tr -s '[:space:]' ' ' | cut -d ' ' -f 3))" -gt 86769664 ] # all linux blocks are currently 1024 bytes (cf. manpage vmstat(8))
 then
-    # OS on different filesystem, more flexible, reduced risk of filled up root FS
-    # 35840 + (5 x 10240) + 5120 + 2048 + 768 (boot) = 84736 MiB * 1024 = 86769664 bytes
+    # using seperate partitions to reduced risk of filled up root filesystem.
     printf '%s\n' "$(cat <<-'DELIM'
 	logvol /         --vgname=vg01 --name=os_root     --fstype="xfs"  --size=10240
 	logvol /home     --vgname=vg01 --name=os_home     --fstype="xfs"  --size=2048
@@ -435,57 +441,38 @@ else
 fi
 # packages.ks
 printf '%s\n\n' '%packages' > /tmp/packages.ks # line not included in HEREDOC, otherwise %package makes Anaconda believe that the %pre section is not closed correctly
-printf '%s\n' "$(cat <<-'DELIM'
-### base
-@^minimal
-@core
-@base
-@hardware-monitoring
-chrony
-kexec-tools
-rng-tools
-
-### VM host (base)
-@virtualization-hypervisor
-@virtualization-tools
-virt-install
-virt-top
-libguestfs-tools
-DELIM
-)" >> /tmp/packages.ks
 if [ -n "${data_hostwithgui}" ] &&
    [ "${data_hostwithgui}" = "true" ]
 then
     printf '%s\n' "$(cat <<-'DELIM'
-	### VM host (GUI)
-	@x11
-	@gnome-desktop
-	@fonts
-	@input-methods
-	@internet-browser
-	virt-manager
-	virt-viewer
+	### Environment
+	@^graphical-server-environment
+
+	### Remove packages
 	-cheese
-	-empathy
 	-totem
 	-totem-nautilus
-	-gnome-boxes
-	-gnome-contacts
-	-gnome-documents
-	-gnome-video-effects
-	# GNOME comes with unoconv which has LibreOffice as dependency
-	-unoconv
 	-@office-suite
-	-libreoffice-core
-	-libreoffice-calc
-	-libreoffice-draw
-	-libreoffice-impress
-	-libreoffice-writer
-	-libreoffice-opensymbol-fonts
-	-libreoffice-ure
+	-gnome-boxes
 	DELIM
     )" >> /tmp/packages.ks
+else
+    printf '%s\n' "$(cat <<-'DELIM'
+	### Environment
+	@^minimal-environment
+
+	### Remove packages
+	# none right now
+
+	DELIM
+	)" >> /tmp/packages.ks
 fi
+printf '%s\n' "$(cat <<-'DELIM'
+### Additional packages or package groups not dependend on the environment
+chrony
+kexec-tools
+DELIM
+)" >> /tmp/packages.ks
 printf '\n%s\n' '%end' >> /tmp/packages.ks
 
 
@@ -529,9 +516,6 @@ exec < /dev/tty1 > /dev/tty1 2> /dev/tty1
 
 
 
-
-
-
 ###### Setup / Anaconda
 
 # use graphical install
@@ -550,6 +534,9 @@ firstboot --enable
 # setup completion method / what to do after the installation was finished
 #   [commented out, let user decide by using the UI Anaconda provides]:  reboot
 
+# basic repository information
+repo --name="AppStream" --baseurl=file:///run/install/repo/AppStream
+
 
 
 ###### Network
@@ -560,8 +547,6 @@ firstboot --enable
 
 
 ###### Internationalization (I18N), Localization (L10N)
-
-
 
 # Keyboard layouts
 #
@@ -579,30 +564,35 @@ keyboard 'us'
 #
 # Hints and notes:
 # - Get list of supported timezones: timedatectl list-timezones
-# - --utc = System assumes the hardware clock is set to UTC time.
-#   FIXME doc states --utc, files created by Anaconda are using --isUtc;
-#         Which one is correct? cf. https://bugs.centos.org/view.php?id=3631
-#
-#  [commented out, let user decide by using the UI Anaconda provides]:  timezone Europe/Berlin --isUtc
-#   NOTE: "timezone" is also commented out for another reason. A lack ot it
-#         prevents Anaconda from starting the installation automatically. This
-#         enables the user to use the UI to adapt misc settings before the
-#         installation happens. Might be useful from time to time, especially
-#         regarding network settings.
+# - --isUtc = System assumes the hardware clock is set to UTC time.
+#   Please note: doc states --utc (cf. red.ht/38bk5KE) but files created by
+#   Anaconda on RHEL 8 are using --isUtc; See also:
+#   https://bugs.centos.org/view.php?id=3631
+#   https://bugzilla.redhat.com/show_bug.cgi?id=1206226
+# - "timezone" is a required kickstart command for a complete automated install.
+#   A lack ot it prevents Anaconda from starting the installation automatically.
+#   This can be used to enable the user to use the UI to adapt misc settings
+#   before the installation happens. Might be useful from time to time,
+#   especially regarding network settings.
+#  [commented out, let user decide by using the UI Anaconda provides]: timezone Europe/Berlin --isUtc
 
 
 
 ###### Authentication
 
-# system authorization information
-auth --enableshadow --passalgo=sha512
+# Nothing right now. "auth --enableshadow --passalgo=sha512" is deprecated in
+# RHEL 8 and "authselect" now in use. Passwords are shadowed by default. See
+# the following for more information:
+# - RHEL 8: Performing an advanced RHEL installation: B.3.2. authselect:
+#   red.ht/2TsyJYF
+# - RHEL 8: Using authselect on a Red Hat Enterprise Linux host: red.ht/2TcAZUY
 
 
 
 ###### Users and groups
-
-# Snippet to create SHA512 crypt compatible user password hashes:
-# python -c 'import crypt,getpass;pw=getpass.getpass();print(crypt.crypt(pw) if (pw==getpass.getpass("Confirm: ")) else exit())'
+# Hints and notes:
+# - Snippet to create SHA512 crypt compatible user password hashes:
+#   python -c 'import crypt,getpass;pw=getpass.getpass();print(crypt.crypt(pw) if (pw==getpass.getpass("Confirm: ")) else exit())'
 
 
 # user: root
@@ -650,19 +640,14 @@ zerombr
 # Create partitions required by the current hardware platform:
 # - A /boot/efi partition for systems with UEFI firmware
 # - A biosboot partition for systems with BIOS firmware and GPT (see
-#   red.ht/2ucqmH1 and red.ht/2hv7o8K for more information)
-#
-# The inst.gpt boot parameter forces a GPT partition table even when the disk
-# size is less than 2^32 sectors, cf. red.ht/2psiz5w. You want to set this in
-# the syslinux config file.
+#   the RHEL 7 related links red.ht/2ucqmH1 and red.ht/2hv7o8K for more
+#   information (still valid for RHEL 8). As well as "RHEL 8: Performing an
+#   advanced RHEL installation: C.4. Recommended partitioning scheme"
+#   (red.ht/2TbaCiw")
 reqpart
 
 # Create boot partition as first partition on disk. Will be unencrypted in
-# every case.
-#
-# Red Hat recommends at least 1 GiB (cf. red.ht/1EZNQYQ), we use less as
-# we usually do not keep many old kernels or even no old ones because of
-# security rules.
+# every case. Red Hat recommends at least 1 GiB (cf. red.ht/2TbaCiw).
 %include /tmp/part-boot.ks
 
 # Create LVM Physical Volume (PV)
@@ -680,12 +665,15 @@ reqpart
 volgroup vg01 pv.01
 
 # Create LVM Logical Volumes (LVs)
-# - For logvol parameter description, see "RHEL 7 Installation Guide,
-#   26.3.1. Kickstart Commands and Options" (cf. red.ht/1Dos5ED)
+# - For logvol parameter description, see
+#   RHEL 8: Performing an advanced RHEL installation: B.5.10. logvol
+#   (red.ht/3ajXcGH).
 # - For LV naming rules, see manpage von lvm(8), "VALID NAMES" section.
-# - On sizes: "RHEL 7 Installation Guide, 8.14.4.4. Recommended Partitioning
-#   Scheme" (cf. red.ht/1EZNQYQ) provides general hints.
+# - On sizes: "RHEL 8: Performing an advanced RHEL installation:
+#   C.4 Recommended Partitioning Scheme" (red.ht/2TbaCiw) provides general
+#   hints.
 %include /tmp/logvol.ks
+
 
 
 ###### Services (modifies systemd target "default")
@@ -693,36 +681,35 @@ volgroup vg01 pv.01
 services --enabled="chronyd"
 
 
+
 ###### GUI: (no) X Window System
+
 %include /tmp/gui.ks
 
 
 ###### Packages
-#
 # Notes:
 # - You can specify packages by environment, group, or by their package names.
 # - Get details of the available packages groups:
-#   yum grouplist ids hidden
-#   yum groupinfo <id>
-#     or
 #   dnf -v grouplist
 #   dnf grouplist hidden
 #   dnf groupinfo <id>
-# - See "RHEL 7 Installation Guide, 26.3.2. Package Selection" (cf.
-#   red.ht/1ECqgSK) for more documentation
+# - See "RHEL 8: Performing an advanced RHEL installation: A.2. Package
+#   selection in Kickstart: https://red.ht/3875Fvn" for more information
 # - Syntax hints:
 #     @^environment
 #     @group
 #     simple-package
 #   Put a "-" in front for removal
+
 %include /tmp/packages.ks
 
 
 
 #### Kdump
-# Disabled on this machine (as we do not have support for CentOS nor usually
-# need this on a default system for debugging) - one might configure it later
-# in /etc/kdump.conf if needed.
+# Disabled on this machine (as we do not have vendor support for CentOS nor
+# usually need this on a default system for debugging) - one might configure it
+# later in /etc/kdump.conf if needed.
 %addon com_redhat_kdump com_redhat_kdump --disable
 
 %end
@@ -750,8 +737,8 @@ pwpolicy user --minlen=10 --minquality=50 --strict --nochanges --notempty
 
 # password policy for dm-crypt/LUKS
 # ATTENTION: One has to keep the %pre script stricter or in sync with the
-#            following kickstart cmd (cf. regex_dmcryptpwd variable and pwscore
-#            value when asking the user for a password).
+#            following kickstart command (cf. regex_dmcryptpwd variable and
+#            pwscore value when asking the user for a password).
 pwpolicy luks --minlen=20 --minquality=50 --strict --nochanges --notempty
 
 %end
@@ -759,13 +746,14 @@ pwpolicy luks --minlen=20 --minquality=50 --strict --nochanges --notempty
 
 
 #### Post-install scripts
-#
 # Notes:
 # - For exchanging data between %pre and %post: cf. comments above %pre.
 # - If really needed, "%post --nochroot" can be used to change things on the
 #   freshly installed system.
-# - RHEL 7 Installation Guide, 26.3.5. Post-installation Script, red.ht/1Q08cug
+# - RHEL 8: Performing an advanced RHEL installation:
+#   A.3.3 %post script, red.ht/3cfVU1f
+#%post --interpreter=/usr/bin/bash --log=/root/ks-post.log
 
-# %post
-#   Nothing right now
-# %end
+# Nothing right now
+
+#%end
