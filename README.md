@@ -1,14 +1,32 @@
 # Kickstart templates
 
-This repository is used to provide template files for
+This repository is used to provide template files and additional resrouces for
 [kickstart](https://en.wikipedia.org/wiki/Kickstart_(Linux)).
 
 At this point in time, it is just a good starting point for further development
 (by providing a solid, well commented base) and only used to assist manual
 setup of our bare metal VM host machines.
 
+## Table of Contents
 
-## HowTo, Tips and Trick
+  * [HowTo, Tips and Tricks](#howto-tips-and-trick)
+    * [Validate Kickstart file, show differences between versions](#validate-kickstart-file-show-differences-between-versions)
+    * [CentOS 7/8: automatically load Kickstart file from OEMDRVstorage device](#centos-78-automatically-load-kickstart-file-from-oemdrvstorage-device)
+    * [CentOS 7/8: Create USB flash drive installation media](#centos-78-create-usb-flash-drive-installation-media)
+    * [Debugging Hints](#debugging-hints)
+    * [CentOS 7: Custom USB flash drive including the Kickstart file for installation](#centos-7-custom-usb-flash-drive-including-the-kickstart-file-for-installation)
+      * [Preparations](#preparations)
+      * [Media creation](#media-creation)
+  * [Further reading, useful links and notes](#further-reading-useful-links-and-notes)
+  * [Ideas / To be done / ToDo](#ideas--to-be-done--todo)
+    * [Split everything](#split-everything)
+    * [Write a generator based on templates?](#write-a-generator-based-on-templates)
+    * [Research](#research)
+      * [Kickstart via webserver or DHCP](#kickstart-via-webserver-or-dhcp)
+
+
+
+## HowTo, Tips and Tricks
 
 
 ### Validate Kickstart file, show differences between versions
@@ -31,6 +49,30 @@ ksverdiff --from RHEL7 --to RHEL8
 # validate a file
 ksvalidator ./foo.ks
 ```
+
+
+### Debugging Hints
+
+After Anaconda (the graphical installer) started, there are differen TTYs /
+terminals you can switch to (via `Ctrl+Alt+F<Number>` ort `Alt+F<Number>`):
+
+* **TTY1:** Main information screen before starting the graphical installer
+  (Anaconda). As well as the installation dialog when using `text` or `cmdline`.
+* **TTY2:** A root shell. Useful commands and hints:
+  * `/tmp/ks-script-XXX`: A script defined in `%pre`. So you can inspect or
+    (re-)run.
+  * A Kickstartfile from a `OEMDRV` gets copied to `/run/install/ks.cfg`. If
+    nothing exists, check if `mkdir /run/foo && mount /dev/sdX1 /run/foo`
+    works.
+  * `lsblk -l -p`
+* **TTY3**
+  * The install log displaying messages from install program.
+* **TTY4**
+  * The system log displaying messages from kernel, etc.
+* **TTY5**
+  * All other messages.
+* **TTY7**
+  * The installation dialog when using the graphical installer.
 
 
 ### CentOS 7/8: automatically load Kickstart file from `OEMDRV`storage device
@@ -91,30 +133,6 @@ $ sha256sum ./CentOS-8.1.1911-x86_64-dvd1.iso
 
 $ sudo dd if=./CentOS-8.1.1911-x86_64-dvd1.iso of=/dev/sdX bs=8M status=progress oflag=direct && sync
 ```
-
-
-### Debugging Hints
-
-After Anaconda (the graphical installer) started, there are differen TTYs /
-terminals you can switch to (via Ctrl+Alt+F<Number> ort Alt+F<Number>):
-
-* **TTY1:** Main information screen before starting the graphical installer
-  (Anaconda). As well as the installation dialog when using `text` or `cmdline`.
-* **TTY2:** A root shell. Useful commands and hints:
-  * `/tmp/ks-script-XXX`: A script defined in `%pre`. So you can inspect or
-    (re-)run.
-  * A Kickstartfile from a `OEMDRV` gets copied to `/run/install/ks.cfg`. If
-    nothing exists, check if `mkdir /run/foo && mount /dev/sdX1 /run/foo`
-    works.
-  * `lsblk -l -p`
-* **TTY3**
-  * The install log displaying messages from install program
-* **TTY4**
-  * The system log displaying messages from kernel, etc.
-* **TTY5**
-  * All other messages
-* **TTY7**
-  * The installation dialog when using the graphical installer.
 
 
 ### CentOS 7: Custom USB flash drive including the Kickstart file for installation
@@ -364,24 +382,156 @@ http://www2.math.uu.se/~chris/kickstart/ (Mirror: http://archive.is/Nq0nM)
 provides interesting thoughts on this.
 
 
-## Bugfix: Sysliinux/dracut/Anaconda: Media validation rd.live.check not working
+### Write a generator based on templates?
 
-Not directly a kickstart issue but related. When setting the syslinux labels,
-`rd.live.check` should start media validation. However, tests are not starting.
-One has to debug and fix this.
+Maybe it makes sense to create an intelligent wizard to generate the Kickstart
+file bases on questions. This propably makes most sense when snippets where
+split up.
 
-See [RHEL 7 Anaconda Customization Guide, "3. Customizing the Boot
-Menu"](https://red.ht/2u9wXBU) and `man dracut.cmdline` for more details and
-documentation.
+Idea in shell:
+
+```sh
+# init misc vars
+data_hostname=''
+data_domainname=''
+data_drive=''
+data_dmcrypt_pwdplain=''
+data_hostwithgui=''
+
+# [Wizard with questions here to fill the data_* vars ]
+
+# Write out KS commands into variables. Have a look above the corresponding
+# init
+KS_SNIPPET_NETWORK=''
+KS_SNIPPET_IGNOREDISK=''
+KS_SNIPPET_BOOTLOADER=''
+KS_SNIPPET_CLEARPART=''
+KS_SNIPPET_PART_BOOT=''
+KS_SNIPPET_PART_PV=''
+KS_SNIPPET_LOGVOL=''
+KS_SNIPPET_GUI=''
+KS_SNIPPET_PACKAGES=''
+
+# network.ks
+KS_SNIPPET_NETWORK="$(printf '%s\n' "network --bootproto=dhcp --activate --hostname=${data_hostname}.${data_domainname}")"
+# ignoredisk.ks
+KS_SNIPPET_IGNOREDISK="$(printf '%s\n' "ignoredisk --only-use=${data_drive}")"
+# bootloader.ks
+KS_SNIPPET_BOOTLOADER="$(printf '%s\n' "bootloader --append=\" crashkernel=auto \" --location=\"mbr\" --boot-drive=\"${data_drive}\"")"
+# clearpart.ks
+KS_SNIPPET_CLEARPART="$(printf '%s\n' "clearpart --all --drives=${data_drive}")"
+# part-boot.ks
+KS_SNIPPET_PART_BOOT="$(printf '%s\n' "part /boot --fstype=\"xfs\" --ondisk=${data_drive} --size=768")"
+# part-pv.ks
+if [ -z "${data_dmcrypt_pwdplain}" ]
+then
+    KS_SNIPPET_PART_PV="$(printf '%s\n' "part pv.01 --fstype=\"lvmpv\" --ondisk=${data_drive} --grow")"
+else
+     #FIXME: writing the password into a file is might be dangerous here. Leaving it out -> let anaconda ask?
+    KS_SNIPPET_PART_PV="$(printf '%s\n' "part pv.01 --fstype=\"lvmpv\" --ondisk=${data_drive} --grow --encrypted --passphrase=${data_dmcrypt_pwdplain}")"
+fi
+# logvol.ks
+if [ "$(printf '%d' $(cat '/proc/partitions' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | grep -E -e "${data_drive}\$" | tr -s '[:space:]' ' ' | cut -d ' ' -f 3))" -gt 86769664 ] # all linux blocks are currently 1024 bytes (cf. manpage vmstat(8))
+then
+    # OS on different filesystem, more flexible, reduced risk of filled up root FS
+    # 35840 + (5 x 10240) + 5120 + 2048 + 768 (boot) = 84736 MiB * 1024 = 86769664 bytes
+    KS_SNIPPET_LOGVOL="$(printf '%s\n' "$(cat <<-'DELIM'
+	logvol /         --vgname=vg01 --name=os_root     --fstype="xfs"  --size=10240
+	logvol /home     --vgname=vg01 --name=os_home     --fstype="xfs"  --size=2048
+	logvol /var      --vgname=vg01 --name=os_var      --fstype="xfs"  --size=35840
+	logvol /var/tmp  --vgname=vg01 --name=os_var_tmp  --fstype="xfs"  --size=10240
+	logvol /var/log  --vgname=vg01 --name=os_var_log  --fstype="xfs"  --size=10240
+	logvol /tmp      --vgname=vg01 --name=os_tmp      --fstype="xfs"  --size=10240
+	logvol swap      --vgname=vg01 --name=os_swap     --fstype="swap" --size=5120
+	DELIM
+    )")"
+else
+    # OS on single filesystem with at least 5 GiB, --grow as large as possible
+    KS_SNIPPET_LOGVOL="$(printf '%s\n' "$(cat <<-'DELIM'
+	logvol /         --vgname=vg01 --name=os_root     --fstype="xfs"  --size=5120 --grow
+	logvol swap      --vgname=vg01 --name=os_swap     --fstype="swap" --size=1024
+	DELIM
+    )")"
+fi
+# gui.kss
+if [ -n "${data_hostwithgui}" ] &&
+   [ "${data_hostwithgui}" = "true" ]
+then
+    KS_SNIPPET_GUI="$(printf '%s\n' "$(cat <<-'DELIM'
+	# X Window System configuration information
+	xconfig --startxonboot
+	DELIM
+    )")"
+else
+    KS_SNIPPET_GUI="$(printf '%s\n' "$(cat <<-'DELIM'
+	# Do not configure the X Window System
+	skipx
+	DELIM
+    )")"
+fi
+# packages.ks
+KS_SNIPPET_PACKAGES="$(printf '%s\n\n' '%packages')" # line not included in HEREDOC, otherwise %package makes Anaconda believe that the %pre section is not closed correctly
+if [ -n "${data_hostwithgui}" ] &&
+   [ "${data_hostwithgui}" = "true" ]
+then
+    KS_SNIPPET_PACKAGES="$(printf '%s\n' "$(cat <<-'DELIM'
+	### Environment
+	@^graphical-server-environment
+
+	### Remove packages
+	-cheese
+	-totem
+	-@office-suite
+	DELIM
+    )")"
+else
+    KS_SNIPPET_PACKAGES="$(printf '%s\n' "$(cat <<-'DELIM'
+	### Environment
+	@^virtualization-host-environment
+
+	### Remove packages
+	# none right now
+
+	DELIM
+	)")"
+fi
+KS_SNIPPET_PACKAGES="
+%packages
+
+${KS_SNIPPET_PACKAGES}
+
+### Additional packages or package groups not dependend on the environment
+@virtualization-hypervisor
+@virtualization-tools
+chrony
+kexec-tools
+virt-install
+virt-top
 
 
+%end
+"
+
+# FIXME
+export KS_SNIPPET_NETWORK
+export KS_SNIPPET_IGNOREDISK
+export KS_SNIPPET_BOOTLOADER
+export KS_SNIPPET_CLEARPART
+export KS_SNIPPET_PART_BOOT
+export KS_SNIPPET_PART_PV
+export KS_SNIPPET_LOGVOL
+export KS_SNIPPET_GUI
+export KS_SNIPPET_PACKAGES
+
+MYVARS='$KS_SNIPPET_NETWORK:$KS_SNIPPET_IGNOREDISK:$KS_SNIPPET_BOOTLOADER:$KS_SNIPPET_CLEARPART:$KS_SNIPPET_PART_BOOT:$KS_SNIPPET_PART_PV:$KS_SNIPPET_LOGVOL:$KS_SNIPPET_GUI:$KS_SNIPPET_PACKAGES'
+envsubst "$MYVARS" <./template.ks >/tmp/result.ks
+```
 
 ### Research
 
-#### Kickstart via webserver ?
+#### Kickstart via webserver or DHCP
 
-  * How to generate and serve kickstart file dynamically and use it with `inst.ks=http://`
-  * HTTPS/TLS possible?
-  * How does this work in terms of network config from syslinux boot menu?
-    Cf. https://www.redhat.com/archives/kickstart-list/2007-July/msg00035.html
-  * Existing projects or create one in golang, basic HTTP server and templating?
+* How to generate and serve kickstart file dynamically and use it with `inst.ks=http://`
+* HTTPS/TLS possible?
+* How does this work in terms of network config from syslinux boot menu? Cf. https://www.redhat.com/archives/kickstart-list/2007-July/msg00035.html
+* Existing projects or create one in golang, basic HTTP server and templating?
