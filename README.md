@@ -329,3 +329,59 @@ even when the disk size is less than 2^32 sectors, cf.
   * http://www.golinuxhub.com/2017/07/sample-kickstart-configuration-file-for.html (at the end of the page)
   * http://www.golinuxhub.com/2017/05/how-to-perform-interactive-kickstart.html
   * `%pre` might write into `/tmp`, the kickstart does an `%include /tmp/foo`. Direct varpassing seems to be impossible, so one has to write complete kickstart commands. %pre can pass values to `%post` by using a ram disk (see links above for details) and you might user `%post` then to adapt the installation kickstart did. You might use multiple `%post` sections, with or without `--chroot` option to access the target system.
+
+
+
+
+
+## Ideas / To be done / ToDo
+
+### Split everything
+
+Organize snippets by category and create snippets for each technical
+usecase. Use `%include` to put them together instead of repeating yourself
+
+```
+.
+├── keyboard
+│   ├── de-de.ks
+│   └── de-us.ks
+├── lang
+├── network
+├── notes-and-ideas
+├── partitioning
+│   ├── auto-gpt-crypt.ks
+│   ├── auto-gpt.ks
+│   ├── auto-mbr-crypt.ks
+│   └── auto-mbr.ks
+├── services
+├── timezone
+├── user
+...
+```
+
+http://www2.math.uu.se/~chris/kickstart/ (Mirror: http://archive.is/Nq0nM)
+provides interesting thoughts on this.
+
+
+## Bugfix: Sysliinux/dracut/Anaconda: Media validation rd.live.check not working
+
+Not directly a kickstart issue but related. When setting the syslinux labels,
+`rd.live.check` should start media validation. However, tests are not starting.
+One has to debug and fix this.
+
+See [RHEL 7 Anaconda Customization Guide, "3. Customizing the Boot
+Menu"](https://red.ht/2u9wXBU) and `man dracut.cmdline` for more details and
+documentation.
+
+
+
+### Research
+
+#### Kickstart via webserver ?
+
+  * How to generate and serve kickstart file dynamically and use it with `inst.ks=http://`
+  * HTTPS/TLS possible?
+  * How does this work in terms of network config from syslinux boot menu?
+    Cf. https://www.redhat.com/archives/kickstart-list/2007-July/msg00035.html
+  * Existing projects or create one in golang, basic HTTP server and templating?
