@@ -80,7 +80,7 @@ terminals you can switch to (via `Ctrl+Alt+F<Number>` or `Alt+F<Number>`):
 
 **Attention / FIXME:** There seems to be a bug in CentOS 8 (including 8.1.1911)
 preventing this automatism to work (at least it did not in our tests). You
-can add `inst.ks=hd:sdX1/ks.cfg` to he setup command line as workaround.
+can add `inst.ks=hd:sdX1:/ks.cfg` to he setup command line as workaround.
 
 The CentOS setup can load your Kickstart file automatically without having to
 specify the `inst.ks=` boot option. To do so, one name the file `ks.cfg` and
@@ -104,7 +104,7 @@ sudo parted "${TARGETDEVICE}" mkpart primary 0% 100%
 ## create filesystem and label it
 # Hint if you need to manually adjust the label of an existing filesystem:
 # ext2/3/4:   e2label "${TARGETDEVICE}1" 'OEMDRV'
-# cfs:        xfs_admin -L 'OEMDRV' "${TARGETDEVICE}1"
+# xfs:        xfs_admin -L 'OEMDRV' "${TARGETDEVICE}1"
 sudo mkfs.xfs -f -L 'OEMDRV' "${TARGETDEVICE}1"
 lsblk -l -p
 
