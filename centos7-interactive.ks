@@ -544,6 +544,10 @@ firstboot --enable
 # setup completion method / what to do after the installation was finished
 #   [commented out, let user decide by using the UI Anaconda provides]:  reboot
 
+# repositories
+# Note: some repositories are added by default via /etc/anaconda.repos.d/
+#       (e.g. baseos, former BaseOS).
+#   [ nothing right now ]
 
 
 ###### Network

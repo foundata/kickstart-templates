@@ -534,7 +534,22 @@ firstboot --enable
 # setup completion method / what to do after the installation was finished
 #   [commented out, let user decide by using the UI Anaconda provides]:  reboot
 
-# basic repository information
+# Repositories
+#
+# Hints and notes:
+# - Some repositories are added by default via /etc/anaconda.repos.d/
+#   (e.g. "baseos", former "BaseOS").
+# - AppStream is required for a basic installation (cf. https://bitly.com/3fLrbM7)
+#   but has to be added explicitly.
+# - CentOS Stream 8 20210506 (DVD1 and netinstall) as well as CentOS 8.3.2011
+#   are shipped with two nasty Anaconda bugs, often resulting in errors like
+#   a broken closest mirror detection and "Error setting up base repository".
+#   See https://bugzilla.redhat.com/show_bug.cgi?id=1946347#c11 for details.
+#   CentOS 8.2.2004 is not affected and might be used as fallback. This is
+#   probably fixed in newer versions:
+#   * https://github.com/rhinstaller/anaconda/pull/3313
+#   * https://git.centos.org/rpms/centos-stream-release/c/9eda8dbd66a0fe26479e403f69001b54885c7c5c?branch=c8s
+#   * https://github.com/weldr/lorax/blob/lorax-28.14.58-1/src/pylorax/dnfbase.py#L81
 repo --name="AppStream" --baseurl=file:///run/install/repo/AppStream
 
 
