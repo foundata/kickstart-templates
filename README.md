@@ -1,11 +1,13 @@
 # Kickstart templates
 
-This repository is used to provide template files and additional resrouces for
-[kickstart](https://en.wikipedia.org/wiki/Kickstart_(Linux)).
+This repository is used to provide resources for the Red Hat [Kickstart](https://en.wikipedia.org/wiki/Kickstart_(Linux)) installation method is used by Fedora, Red Hat Enterprise Linux (RHEL) and related distributions like CentOS. Kickstart is used to automatically perform unattended OS Installation (e.g. by PXE):
 
-At this point in time, it is just a good starting point for further development
-(by providing a solid, well commented base) and only used to assist manual
-setup of our bare metal VM host machines.
+* Template files (mostly used to assist the secure setup of bare metal VM host machines for foundata)
+* Snippets
+* Notes about bugs, compatibility issues and so on.
+
+Some of these ideas and snippets might be useful for third parties. We therefore open sourced this repo.
+
 
 ## Table of Contents
 
@@ -31,12 +33,9 @@ setup of our bare metal VM host machines.
 
 ### Validate Kickstart file, show differences between versions
 
-[pykickstart](https://pykickstart.readthedocs.io/en/latest/kickstart-docs.html)
-provides [tools](https://github.com/rhinstaller/pykickstart/tree/master/tools) like
-`ksvalidator` and `ksdiff`. It makes sense to simply run them on the latest
-Fedora release by installing the `pykickstart` package.
+[pykickstart](https://pykickstart.readthedocs.io/en/latest/kickstart-docs.html) provides [tools](https://github.com/rhinstaller/pykickstart/tree/master/tools) like `ksvalidator` and `ksdiff`. It makes sense to simply run them on the latest Fedora release by installing the `pykickstart` package.
 
-```
+```bash
 # install needed package
 sudo dnf install pykickstart
 
@@ -78,20 +77,14 @@ terminals you can switch to (via `Ctrl+Alt+F<Number>` or `Alt+F<Number>`):
 
 ### Automatically load Kickstart file from `OEMDRV` storage device
 
-**Attention / FIXME:** There seems to be a bug in CentOS 8 (including 8.1.1911)
-preventing this automatism to work (at least it did not in our tests). You
-can add `inst.ks=hd:sdX1:/ks.cfg` to he setup command line as workaround.
+**Attention / FIXME:** There seems to be a bug in CentOS 8 (including 8.1.1911) preventing this automatism to work (at least it did not in our tests). You can add `inst.ks=hd:sdX1:/ks.cfg` to he setup command line as workaround.
 
-The CentOS setup can load your Kickstart file automatically without having to
-specify the `inst.ks=` boot option. To do so, one name the file `ks.cfg` and
-place it on an additional storage volume labeled `OEMDRV` (cf. [RHEL 7
-installation guide: 26.2.5. Starting the Kickstart Installation](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/installation_guide/sect-kickstart-howto#sect-kickstart-installation-starting)).
-One You can use ext2/3/4 or XFS as filesystem.
+The CentOS setup can load your Kickstart file automatically without having to specify the `inst.ks=` boot option. To do so, one name the file `ks.cfg` and place it on an additional storage volume labeled `OEMDRV` (cf. [RHEL 7 installation guide: 26.2.5. Starting the Kickstart Installation](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/installation_guide/sect-kickstart-howto#sect-kickstart-installation-starting)). One You can use ext2/3/4 or XFS as filesystem.
 
 
 The following explains how to prepare [prepare a USB key with label `OEMDRV`](https://docs.centos.org/en-US/8-docs/advanced-install/assembly_making-kickstart-files-available-to-the-installation-program/#making-a-kickstart-file-available-on-a-local-volume-for-automatic-loading_making-kickstart-files-available-to-the-installation-program) on the terminal (`gparted` as UI would also be sufficient):
 
-```
+```bash
 ## define path of USB flash drive
 lsblk -l -p
 TARGETDEVICE='/dev/sdX'
@@ -132,7 +125,7 @@ Just validate your ISO and write it with `dd` to the target device `/dev/sdX`
 
 Example:
 
-```
+```bash
 $ sha256sum ./CentOS-8.1.1911-x86_64-dvd1.iso
 3ee3f4ea1538e026fff763e2b284a6f20b259d91d1ad5688f5783a67d279423b  ./CentOS-8.1.1911-x86_64-dvd1.iso
 
@@ -151,7 +144,7 @@ work with CentOS 8** (or at least needs adaption).
 Download the DVD ISO from <https://www.centos.org/download/>. Do not forget
 to **verify the checksums**! Example:
 
-```
+```bash
 sha256sum ./CentOS-7-x86_64-DVD-1611.iso
 c455ee948e872ad2194bdddd39045b83634e8613249182b88f549bb2319d97eb  ./CentOS-7-x86_64-DVD-1611.iso
 ```
@@ -171,7 +164,7 @@ Hints for Virtual Box and CentOS:
 * USB 3 devices do not work on virtual USB 2 controllers (so the VirtualBox
   extension pack is needed then).
 * [Install guest additions](https://www.if-not-true-then-false.com/2010/install-virtualbox-guest-additions-on-fedora-centos-red-hat-rhel/):
-  ```
+  ```bash
   # Preparation
   sudo yum install epel-release
   sudo yum install gcc kernel-devel kernel-headers dkms make bzip2 perl
@@ -200,7 +193,7 @@ Tasks:
 * Adapt `syslinux.cfg` on `KSBOOT` and place the `ks.cfg` beside
 
 Full working example to execute under CentOS (all data on `sdX` will be lost!)
-```
+```bash
 ## define path of USB flash drive and ISO
 TARGETDEVICE='/dev/sdX'
 ISOFILE='/path/to/centos/dvd.iso'
@@ -287,7 +280,7 @@ rm -rf "/mnt/tmpkickstart/"
 
 Example syslinux labels:
 
-```
+```bash
 # The inst.gpt boot parameter forces a GPT partition table even when the disk
 # size is less than 2^32 sectors, cf. red.ht/2psiz5w.
 
@@ -396,7 +389,7 @@ split up.
 
 Idea in shell:
 
-```sh
+```bash
 # init misc vars
 data_hostname=''
 data_domainname=''
